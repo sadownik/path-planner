@@ -52,11 +52,11 @@ int main() {
   }
 
   //int lane = 1;
-
+  int lane = 1;
   double ref_vel = 49.5;
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy]
+               &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -104,6 +104,8 @@ int main() {
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
+
+
         vector <double> ptsx;
         vector <double> ptsy;
 
@@ -140,9 +142,9 @@ int main() {
 
 
         // Transform from Frenet s,d coordinates to Cartesian x,y
-        vector <double> next_wp0 = getXY(car_s + 30,(2+4 * 1),map_waypoints_s,map_waypoints_x, map_waypoints_y);
-        vector <double> next_wp1 = getXY(car_s + 60,(2+4 * 1),map_waypoints_s,map_waypoints_x, map_waypoints_y);
-        vector <double> next_wp2 = getXY(car_s + 90,(2+4 * 1),map_waypoints_s,map_waypoints_x, map_waypoints_y);
+        vector <double> next_wp0 = getXY(car_s + 30,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
+        vector <double> next_wp1 = getXY(car_s + 60,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
+        vector <double> next_wp2 = getXY(car_s + 90,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
 
         ptsx.push_back(next_wp0[0]);
         ptsx.push_back(next_wp1[0]);
@@ -152,19 +154,21 @@ int main() {
         ptsy.push_back(next_wp1[1]);
         ptsy.push_back(next_wp2[1]);
 
-        for (int i = 0; i <= ptsx.size()-1; i++ ){
-          std::cout << ptsx[i]<< "  "<< ptsy[i] << std::endl;
-        }
-        std::cout<< "------"<< std::endl;
+
 
         for (int i = 0; i < ptsx.size(); i ++) {
 
           double shift_x = ptsx[i]- ref_x;
           double shift_y = ptsy[i]- ref_y;
 
-          ptsx[i] = (shift_x * cos (0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
-          ptsy[i] = (shift_x * sin (0 - ref_yaw) - shift_y * cos(0 - ref_yaw));
+          ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
+          ptsy[i] = (shift_x * sin(0 - ref_yaw) - shift_y * cos(0 - ref_yaw));
         }
+
+        for (int i = 0; i <= ptsx.size()-1; i++ ){
+          std::cout << ptsx[i]<< "  "<< ptsy[i] << std::endl;
+        }
+        std::cout<< "------"<< std::endl;
 
         tk::spline s;
 
@@ -183,11 +187,11 @@ int main() {
         double target_x = 30.0;
         double target_y = s(target_x);
         double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
-        std::cout << target_dist << " target dist" << std::endl;
+        //std::cout << target_dist << " target dist" << std::endl;
         double x_add_on = 0;
 
         for(int i = 1; i<= 50-previous_path_x.size(); i++){
-            double N = (target_dist/(.02 * 49.5/2.24));
+            double N = (target_dist/(.02 * ref_vel/2.24));
             double x_point = x_add_on+(target_x)/N;
             double y_point = s(x_point);
 
