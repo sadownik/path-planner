@@ -14,6 +14,23 @@ using nlohmann::json;
 using std::string;
 using std::vector;
 
+template <typename T>
+vector<size_t> sort_indexes(const vector<T> &v) {
+
+  // initialize original index locations
+  vector<size_t> idx(v.size());
+  iota(idx.begin(), idx.end(), 0);
+
+  // sort indexes based on comparing values in v
+  // using std::stable_sort instead of std::sort
+  // to avoid unnecessary index re-orderings
+  // when v contains elements of equal values
+  stable_sort(idx.begin(), idx.end(),
+       [&v](size_t i1, size_t i2) {return v[i1] < v[i2];});
+
+  return idx;
+}
+
 int main() {
   uWS::Hub h;
 
@@ -139,6 +156,11 @@ int main() {
           ptsy.push_back(ref_y);
         }
 
+        std::cout <<"--check ptsx before-- "<< std::endl;
+        for (int i = 0; i <= ptsx.size()-1; i++ ){
+          std::cout << ptsx[i]<< "  "<< ptsy[i] << std::endl;
+        }
+        std::cout<< "------"<< std::endl;
 
 
         // Transform from Frenet s,d coordinates to Cartesian x,y
@@ -146,6 +168,9 @@ int main() {
         vector <double> next_wp1 = getXY(car_s + 60,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
         vector <double> next_wp2 = getXY(car_s + 90,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
 
+        std::cout << "wp0" << std::endl;
+        std::cout << next_wp0[0] << std::endl;
+        std::cout << "-----" << std::endl;
         ptsx.push_back(next_wp0[0]);
         ptsx.push_back(next_wp1[0]);
         ptsx.push_back(next_wp2[0]);
@@ -154,63 +179,64 @@ int main() {
         ptsy.push_back(next_wp1[1]);
         ptsy.push_back(next_wp2[1]);
 
-
-
-        for (int i = 0; i < ptsx.size(); i ++) {
-
-          double shift_x = ptsx[i]- ref_x;
-          double shift_y = ptsy[i]- ref_y;
-
-          ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
-          ptsy[i] = (shift_x * sin(0 - ref_yaw) - shift_y * cos(0 - ref_yaw));
-        }
-
+        std::cout <<"--check ptsx after-- "<< std::endl;
         for (int i = 0; i <= ptsx.size()-1; i++ ){
           std::cout << ptsx[i]<< "  "<< ptsy[i] << std::endl;
         }
         std::cout<< "------"<< std::endl;
+        std::cout <<"------- "<< std::endl;
+
+
+        for ( int i = 0; i < ptsx.size(); i++ ) {
+          double shift_x = ptsx[i] - ref_x;
+          double shift_y = ptsy[i] - ref_y;
+
+          ptsx[i] = shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw);
+          ptsy[i] = shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw);
+        }
+
+
+
+
 
         tk::spline s;
 
-
-
-        vector <double> next_x_vals;
-        vector <double> next_y_vals;
-
-        s.set_points(ptsx,ptsy);
+        s.set_points(ptsx, ptsy);
+        vector<double> next_x_vals;
+        vector<double> next_y_vals;
 
 		    for (int i = 0; i < previous_path_x.size(); i++) {
   			     next_x_vals.push_back(previous_path_x[i]);
   			     next_y_vals.push_back(previous_path_y[i]);
 		    }
 
+        // Calculate distance y position on 30 m ahead.
         double target_x = 30.0;
         double target_y = s(target_x);
-        double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
-        //std::cout << target_dist << " target dist" << std::endl;
+        double target_dist = sqrt(target_x*target_x + target_y*target_y);
+
         double x_add_on = 0;
 
-        for(int i = 1; i<= 50-previous_path_x.size(); i++){
-            double N = (target_dist/(.02 * ref_vel/2.24));
-            double x_point = x_add_on+(target_x)/N;
-            double y_point = s(x_point);
+        for( int i = 1; i < 50 - prev_size; i++ ) {
 
-            x_add_on = x_point;
+          double N = target_dist/(0.02*ref_vel/2.24);
+          double x_point = x_add_on + target_x/N;
+          double y_point = s(x_point);
 
-            double x_ref = x_point;
-            double y_ref = y_point;
+          x_add_on = x_point;
 
-            x_point = (x_ref * cos(ref_yaw)-y_ref * sin(ref_yaw));
-            y_point = (x_ref * sin(ref_yaw)+y_ref*cos(ref_yaw));
+          double x_ref = x_point;
+          double y_ref = y_point;
 
-            x_point += ref_x;
-            y_point += ref_y;
+          x_point = x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw);
+          y_point = x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
 
-            next_x_vals.push_back(x_point);
-            next_y_vals.push_back(y_point);
-        }
+          x_point += ref_x;
+          y_point += ref_y;
 
-
+          next_x_vals.push_back(x_point);
+          next_y_vals.push_back(y_point);
+          }
 
 
           msgJson["next_x"] = next_x_vals;
