@@ -70,7 +70,10 @@ int main() {
 
   //int lane = 1;
   int lane = 1;
-  double ref_vel = 49.5;
+
+  double ref_vel = 0;
+
+
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel]
@@ -122,6 +125,75 @@ int main() {
            *   sequentially every .02 seconds
            */
 
+        if(prev_size > 0){
+          car_s = end_path_s;
+        }
+
+        bool too_close = false;
+        bool sped_up = false;
+        int lane0 = 0;
+        bool left_too_close = false;
+
+        //find rev_v to used
+        for(int i = 0; i < sensor_fusion.size(); i ++){
+
+          //car is in my lane
+          float d = sensor_fusion[i][6];
+          // check car in same lane
+          if (d < (2+4*lane+2)&& d > (2+4*lane-2)){
+
+            double vx = sensor_fusion[i][3];
+            double vy = sensor_fusion[i][4];
+            double check_speed = sqrt(vx*vx + vy*vy);
+            double check_car_s = sensor_fusion[i][5];
+            check_car_s += ((double)prev_size*0.02*check_speed);
+
+            if((check_car_s > car_s) && ((check_car_s - car_s) <20) ){
+
+              too_close = true;
+            }
+          }
+          //check car in left lane
+
+          if (d < (2+4*lane0+2)&& d > (2+4*lane0-2)){
+            //std::cout << d<< std::endl;
+
+            double vx = sensor_fusion[i][3];
+            double vy = sensor_fusion[i][4];
+            double check_speed = sqrt(vx*vx + vy*vy);
+            double check_car_s = sensor_fusion[i][5];
+            check_car_s += ((double)prev_size*0.02*check_speed);
+            //std::cout << abs(check_car_s - car_s)<< std::endl;
+            if(abs(check_car_s - car_s) < 10){
+
+              left_too_close = true;
+
+            }
+          }
+        }
+
+        std::cout << left_too_close<< std::endl;
+
+        if(too_close && !left_too_close && lane == 1){
+          lane = 0;
+        }
+
+        if(too_close && left_too_close){
+
+          ref_vel -= .4;//224
+        }
+        else if(ref_vel < 49.5){
+
+          ref_vel += .24;
+        }
+
+        if(ref_vel> 40.0){
+          sped_up = true;
+        }
+        else{
+          sped_up = false;
+        }
+        //std::cout << sped_up << " sped up" << std::endl;
 
         vector <double> ptsx;
         vector <double> ptsy;
@@ -156,11 +228,7 @@ int main() {
           ptsy.push_back(ref_y);
         }
 
-        std::cout <<"--check ptsx before-- "<< std::endl;
-        for (int i = 0; i <= ptsx.size()-1; i++ ){
-          std::cout << ptsx[i]<< "  "<< ptsy[i] << std::endl;
-        }
-        std::cout<< "------"<< std::endl;
+
 
 
         // Transform from Frenet s,d coordinates to Cartesian x,y
@@ -168,9 +236,6 @@ int main() {
         vector <double> next_wp1 = getXY(car_s + 60,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
         vector <double> next_wp2 = getXY(car_s + 90,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
 
-        std::cout << "wp0" << std::endl;
-        std::cout << next_wp0[0] << std::endl;
-        std::cout << "-----" << std::endl;
         ptsx.push_back(next_wp0[0]);
         ptsx.push_back(next_wp1[0]);
         ptsx.push_back(next_wp2[0]);
@@ -178,13 +243,6 @@ int main() {
         ptsy.push_back(next_wp0[1]);
         ptsy.push_back(next_wp1[1]);
         ptsy.push_back(next_wp2[1]);
-
-        std::cout <<"--check ptsx after-- "<< std::endl;
-        for (int i = 0; i <= ptsx.size()-1; i++ ){
-          std::cout << ptsx[i]<< "  "<< ptsy[i] << std::endl;
-        }
-        std::cout<< "------"<< std::endl;
-        std::cout <<"------- "<< std::endl;
 
 
         for ( int i = 0; i < ptsx.size(); i++ ) {
@@ -194,10 +252,6 @@ int main() {
           ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
           ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
         }
-
-
-
-
 
         tk::spline s;
 
