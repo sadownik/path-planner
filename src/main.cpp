@@ -31,6 +31,24 @@ vector<size_t> sort_indexes(const vector<T> &v) {
   return idx;
 }
 
+struct controls {
+  int lane;
+  double velocity;
+};
+
+typedef struct controls Struct;
+
+template <typename T> Struct stateMachine(T sensor_fusion){
+  Struct c;
+  c.lane = 1;
+  c.velocity = 30;
+  float d = sensor_fusion[1][6];
+  std::cout << d << std::endl;
+  std::cout << "winrar"<< std::endl;
+
+return c;
+}
+
 int main() {
   uWS::Hub h;
 
@@ -172,7 +190,7 @@ int main() {
           }
         }
 
-        std::cout << left_too_close<< std::endl;
+        //std::cout << left_too_close<< std::endl;
 
         if(too_close && !left_too_close && lane == 1){
           lane = 0;
@@ -193,6 +211,9 @@ int main() {
         else{
           sped_up = false;
         }
+
+        Struct state_controls;
+        state_controls = stateMachine(sensor_fusion);
         //std::cout << sped_up << " sped up" << std::endl;
 
         vector <double> ptsx;
