@@ -48,14 +48,13 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
   }
 
   bool car_in_front = false;
-  bool sped_up = false;
+
 
   bool left_possible = true;
   bool right_possible = true;
   double acc_dist = 100;
-  double ref_vel_delta = 0;
   double car_ahead_speed = 0;
-  //find rev_v to used
+
   double mindist = 200;
 
   for(int i = 0; i < sensor_fusion.size(); i ++){
@@ -84,21 +83,18 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
 
     if(mindist<50){
       car_in_front = true;
-      //car_ahead_speed = check_speed;
-
     }
     acc_dist = mindist;
     //check car in left lane
 
     if (d < (2+4*(lane-1)+2)&& d > (2+4*(lane-1)-2)&& lane > 0){
-      //std::cout << d<< std::endl;
 
       double vx = sensor_fusion[i][3];
       double vy = sensor_fusion[i][4];
       double check_speed = sqrt(vx*vx + vy*vy);
       double check_car_s = sensor_fusion[i][5];
       check_car_s += ((double)prev_size*0.02*check_speed);
-      //std::cout << abs(check_car_s - car_s)<< std::endl;
+
       if(abs(check_car_s - car_s) < 20){
 
         left_possible = false;
@@ -106,14 +102,13 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
       }
     }
     if (d < (2+4*(lane+1)+2)&& d > (2+4*(lane+1)-2)&& lane<2){
-      //std::cout << d<< std::endl;
 
       double vx = sensor_fusion[i][3];
       double vy = sensor_fusion[i][4];
       double check_speed = sqrt(vx*vx + vy*vy);
       double check_car_s = sensor_fusion[i][5];
       check_car_s += ((double)prev_size*0.02*check_speed);
-      //std::cout << abs(check_car_s - car_s)<< std::endl;
+
       if(abs(check_car_s - car_s) < 20){
 
         right_possible = false;
@@ -139,9 +134,7 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
       CurrentState = HOLD_LANE;
     }
 
-  double ref_vel_alt = ref_vel;
-  double acc_current;
-  double k;
+
   timestamp+=1;
   if(left_possible && timestamp>100 && car_in_front){
     CurrentState = CHANGE_LEFT;
@@ -150,10 +143,10 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
     CurrentState = CHANGE_RIGHT;
   }
 
+  double ref_vel_alt = ref_vel;
+  double acc_current;
+  double k;
 
-
-
-  //state CurrentState = HOLD_LANE;
   switch (CurrentState) {
 
     case HOLD_LANE:
@@ -164,7 +157,6 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
       break;
 
     case KEEP_DISTANCE:
-
 
       k = 0.2;
       // calculate vref based on distance
@@ -193,92 +185,18 @@ template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_
     case CHANGE_LEFT:
 
       lane -=1;
-      std::cout <<"lane change LEFT "<< std::endl;
       timestamp = 0;
     break;
 
     case CHANGE_RIGHT:
 
       lane +=1;
-      std::cout <<"lane change RIGHT "<< std::endl;
       timestamp = 0;
 
     break;
-
-
-      //case KEEP_DISTANCE:
-
-
-
-
   }
 
 
-/*
-  timestamp+=1;
-  if(left_possible && timestamp>100 && car_in_front ){
-    lane -=1;
-    std::cout <<"lane change LEFT "<< std::endl;
-    timestamp = 0;
-
-  }
-  if(right_possible && timestamp>100 && car_in_front ){
-    lane +=1;
-    std::cout <<"lane change RIGHT "<< std::endl;
-    timestamp = 0;
-  }
-*/
-
-
-
-
-/*
-double factor = 0.05;
-  if(car_in_front){
-    ref_vel = 2*car_ahead_speed*2.23/(1+exp(-factor*(acc_dist)));
-    if(ref_vel==0 || ref_vel>49.5 ){
-      ref_vel = 49.5;
-    }
-  }
-*/
-
-
-
-
-  //double acc_current = ref_vel_alt-ref_vel;
-  if(acc_current>acc_max){
-    acc_max = acc_current;
-  }
-  std::cout <<"acc_current "<< acc_current << std::endl;
-  std::cout <<"acc_max "<< acc_max << std::endl;
-  std::cout <<"vref "<< ref_vel << std::endl;
-  std::cout <<"CurrentState "<< CurrentState << std::endl;
-
-
-
-  //std::cout <<"ref_vel"<< ref_vel << std::endl;
-
-/*
-ref_vel_delta =  0.1 * acc_dist - (0.224*30);
-
-ref_vel += ref_vel_delta;
-if(ref_vel>49.5){
-  ref_vel=49.5;
-}
-
-*/
-//ref_vel_delta =  0.1 * acc_dist - (0.224*30);
-
-//std::cout <<"car_ahead_speed m/s"<< car_ahead_speed << std::endl;
-//std::cout <<"own speed m/s"<< car_speed*0.447 << std::endl;
-//std::cout <<"target_speed m/s"<< target_speed << std::endl;
-/*
-std::cout <<"left_possible? "<< left_possible << std::endl;
-std::cout <<"right_possible? "<< right_possible << std::endl;
-std::cout <<"car_in_front? "<< car_in_front << std::endl;
-std::cout <<"car speed? "<< car_speed << std::endl;
-std::cout <<"curren lane? "<< lane << std::endl;
-*/
 c.lane = lane;
 c.velocity = ref_vel;
 
@@ -328,7 +246,6 @@ int main() {
   double ref_vel = 0;
 
 
-
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
@@ -371,9 +288,6 @@ int main() {
 
           json msgJson;
 
-          //vector<double> next_x_vals;
-          //vector<double> next_y_vals;
-
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
@@ -385,7 +299,6 @@ int main() {
         state_controls = stateMachine(sensor_fusion, lane, ref_vel, prev_size, car_s, end_path_s, car_speed);
         ref_vel = state_controls.velocity;
         lane = state_controls.lane;
-        //std::cout << sped_up << " sped up" << std::endl;
 
         vector <double> ptsx;
         vector <double> ptsy;
@@ -395,6 +308,7 @@ int main() {
         double ref_yaw = deg2rad(car_yaw);
 
         if(prev_size < 2){
+          
           double prev_car_x = car_x - cos(car_yaw);
           double prev_car_y = car_y - sin(car_yaw);
 
@@ -420,9 +334,6 @@ int main() {
           ptsy.push_back(ref_y);
         }
 
-
-
-        //30 60 90
         // Transform from Frenet s,d coordinates to Cartesian x,y
         vector <double> next_wp0 = getXY(car_s + 60,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
         vector <double> next_wp1 = getXY(car_s + 90,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
@@ -446,12 +357,7 @@ int main() {
         }
 
         tk::spline s;
-/*
-        for(int i = 0; i<ptsx.size(); i++){
-          std::cout << ptsx[i] << "   "<< ptsy[i]   << std::endl;
-        }
-        std::cout << "--------------" << std::endl;
-*/
+
         vector <double> sorted_ptsx;
         vector <double> sorted_ptsy;
         for (auto i: sort_indexes(ptsx)) {
