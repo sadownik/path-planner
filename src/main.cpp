@@ -35,16 +35,212 @@ struct controls {
   int lane;
   double velocity;
 };
-
+vector <double> avg_speed;
 typedef struct controls Struct;
-
-template <typename T> Struct stateMachine(T sensor_fusion){
+int timestamp = 0;
+template <typename T> Struct stateMachine(T sensor_fusion, int lane, double ref_vel, int prev_size,
+  double car_s, double end_path_s, double car_speed){
   Struct c;
-  c.lane = 1;
-  c.velocity = 30;
-  float d = sensor_fusion[1][6];
-  std::cout << d << std::endl;
-  std::cout << "winrar"<< std::endl;
+
+  if(prev_size > 0){
+    car_s = end_path_s;
+  }
+
+  bool too_close = false;
+  bool sped_up = false;
+
+  bool left_possible = true;
+  bool right_possible = true;
+  double acc_dist = 100;
+  double ref_vel_delta = 0;
+  double car_ahead_speed = 0;
+  //find rev_v to used
+  double mindist = 100;
+
+  for(int i = 0; i < sensor_fusion.size(); i ++){
+
+    //car is in my lane
+    float d = sensor_fusion[i][6];
+    // check car in same lane
+    if (d < (2+4*lane+2)&& d > (2+4*lane-2)){
+
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx*vx + vy*vy);
+      double check_car_s = sensor_fusion[i][5];
+      check_car_s += ((double)prev_size*0.02*check_speed);
+      //acc_dist = check_car_s - car_s;
+
+
+        if((check_car_s > car_s)){
+
+          if((check_car_s - car_s)<mindist){
+            mindist = (check_car_s - car_s);
+            car_ahead_speed = check_speed;
+            avg_speed.push_back(check_speed);
+
+          }
+        }
+
+
+      if(avg_speed.size()>10)
+      {
+        avg_speed.resize(10);
+      }
+      /*
+      if((check_car_s > car_s) && ((check_car_s - car_s) <50) ){
+        acc_dist = check_car_s - car_s-20;
+        too_close = true;
+        car_ahead_speed = check_speed;
+      }
+      */
+    }
+
+    if(mindist<50){
+      too_close = true;
+      //car_ahead_speed = check_speed;
+      acc_dist = mindist- 30;
+    }
+    //check car in left lane
+
+    if (d < (2+4*(lane-1)+2)&& d > (2+4*(lane-1)-2)&& lane > 0){
+      //std::cout << d<< std::endl;
+
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx*vx + vy*vy);
+      double check_car_s = sensor_fusion[i][5];
+      check_car_s += ((double)prev_size*0.02*check_speed);
+      //std::cout << abs(check_car_s - car_s)<< std::endl;
+      if(abs(check_car_s - car_s) < 20){
+
+        left_possible = false;
+
+      }
+    }
+    if (d < (2+4*(lane+1)+2)&& d > (2+4*(lane+1)-2)&& lane<2){
+      //std::cout << d<< std::endl;
+
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx*vx + vy*vy);
+      double check_car_s = sensor_fusion[i][5];
+      check_car_s += ((double)prev_size*0.02*check_speed);
+      //std::cout << abs(check_car_s - car_s)<< std::endl;
+      if(abs(check_car_s - car_s) < 20){
+
+        right_possible = false;
+
+      }
+    }
+  }
+  if(lane==0){
+    left_possible = false;
+    //changing lanes
+  }
+  if(lane==2){
+    right_possible = false;
+  }
+  //std::cout << left_possible<< std::endl;
+  /*
+  if(car_speed> 40.0){
+    sped_up = true;
+  }
+  else{
+    sped_up = false;
+  }
+*/
+
+/*
+  timestamp+=1;
+  if(left_possible && timestamp>100 && too_close ){
+    lane -=1;
+    std::cout <<"lane change LEFT "<< std::endl;
+    timestamp = 0;
+
+  }
+  if(right_possible && timestamp>100 && too_close ){
+    lane +=1;
+    std::cout <<"lane change RIGHT "<< std::endl;
+    timestamp = 0;
+  }
+*/
+
+  //if(too_close && !left_possible && !right_possible){
+
+  if(!too_close && ref_vel <49.5){
+    ref_vel += .224;//224
+  }
+
+/*
+double factor = 0.05;
+  if(too_close){
+    ref_vel = 2*car_ahead_speed*2.23/(1+exp(-factor*(acc_dist)));
+    if(ref_vel==0 || ref_vel>49.5 ){
+      ref_vel = 49.5;
+    }
+  }
+*/
+int sumTotal = 0;
+for(int k=0; k < avg_speed.size(); ++k){
+     // not sure what to put here basically.
+     sumTotal += avg_speed[k];
+
+ }
+car_ahead_speed = sumTotal / 10;
+
+
+  if(too_close){
+    /*
+    ref_vel_delta = .5 * acc_dist/(1+abs(acc_dist));
+    double k = 1;
+    double cruise_speed = 49.5;
+    double x0 = log((cruise_speed-car_ahead_speed)/cruise_speed);
+
+    ref_vel = cruise_speed/(1+exp(-k* (0.3*acc_dist - x0 )));
+    */
+    ref_vel = 49.5 * acc_dist/(1 + abs(acc_dist));
+    if(ref_vel<=0){
+      ref_vel = 0;
+    }
+    if(ref_vel>49.5){
+      ref_vel = 49.5;
+    }
+
+    /*
+    //ref_vel_delta = .3 * tanh(7*acc_dist);
+    //ref_vel += ref_vel_delta;
+    if(ref_vel==0 || ref_vel>49.5 ){
+      ref_vel = 49.5;
+    }
+
+    */
+  }
+  //std::cout <<"ref_vel"<< ref_vel << std::endl;
+
+/*
+ref_vel_delta =  0.1 * acc_dist - (0.224*30);
+
+ref_vel += ref_vel_delta;
+if(ref_vel>49.5){
+  ref_vel=49.5;
+}
+
+*/
+//ref_vel_delta =  0.1 * acc_dist - (0.224*30);
+
+//std::cout <<"car_ahead_speed m/s"<< car_ahead_speed << std::endl;
+//std::cout <<"own speed m/s"<< car_speed*0.447 << std::endl;
+//std::cout <<"target_speed m/s"<< target_speed << std::endl;
+/*
+std::cout <<"left_possible? "<< left_possible << std::endl;
+std::cout <<"right_possible? "<< right_possible << std::endl;
+std::cout <<"too_close? "<< too_close << std::endl;
+std::cout <<"car speed? "<< car_speed << std::endl;
+std::cout <<"curren lane? "<< lane << std::endl;
+*/
+c.lane = lane;
+c.velocity = ref_vel;
 
 return c;
 }
@@ -87,9 +283,9 @@ int main() {
   }
 
   //int lane = 1;
-  int lane = 1;
+  int lane = 0;
 
-  double ref_vel = 0;
+  double ref_vel = 49.5;
 
 
 
@@ -143,77 +339,12 @@ int main() {
            *   sequentially every .02 seconds
            */
 
-        if(prev_size > 0){
-          car_s = end_path_s;
-        }
-
-        bool too_close = false;
-        bool sped_up = false;
-        int lane0 = 0;
-        bool left_too_close = false;
-
-        //find rev_v to used
-        for(int i = 0; i < sensor_fusion.size(); i ++){
-
-          //car is in my lane
-          float d = sensor_fusion[i][6];
-          // check car in same lane
-          if (d < (2+4*lane+2)&& d > (2+4*lane-2)){
-
-            double vx = sensor_fusion[i][3];
-            double vy = sensor_fusion[i][4];
-            double check_speed = sqrt(vx*vx + vy*vy);
-            double check_car_s = sensor_fusion[i][5];
-            check_car_s += ((double)prev_size*0.02*check_speed);
-
-            if((check_car_s > car_s) && ((check_car_s - car_s) <20) ){
-
-              too_close = true;
-            }
-          }
-          //check car in left lane
-
-          if (d < (2+4*lane0+2)&& d > (2+4*lane0-2)){
-            //std::cout << d<< std::endl;
-
-            double vx = sensor_fusion[i][3];
-            double vy = sensor_fusion[i][4];
-            double check_speed = sqrt(vx*vx + vy*vy);
-            double check_car_s = sensor_fusion[i][5];
-            check_car_s += ((double)prev_size*0.02*check_speed);
-            //std::cout << abs(check_car_s - car_s)<< std::endl;
-            if(abs(check_car_s - car_s) < 10){
-
-              left_too_close = true;
-
-            }
-          }
-        }
-
-        //std::cout << left_too_close<< std::endl;
-
-        if(too_close && !left_too_close && lane == 1){
-          lane = 0;
-        }
-
-        if(too_close && left_too_close){
-
-          ref_vel -= .4;//224
-        }
-        else if(ref_vel < 49.5){
-
-          ref_vel += .24;
-        }
-
-        if(ref_vel> 40.0){
-          sped_up = true;
-        }
-        else{
-          sped_up = false;
-        }
 
         Struct state_controls;
-        state_controls = stateMachine(sensor_fusion);
+
+        state_controls = stateMachine(sensor_fusion, lane, ref_vel, prev_size, car_s, end_path_s, car_speed);
+        ref_vel = state_controls.velocity;
+        lane = state_controls.lane;
         //std::cout << sped_up << " sped up" << std::endl;
 
         vector <double> ptsx;
@@ -251,7 +382,7 @@ int main() {
 
 
 
-
+        //30 60 90
         // Transform from Frenet s,d coordinates to Cartesian x,y
         vector <double> next_wp0 = getXY(car_s + 30,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
         vector <double> next_wp1 = getXY(car_s + 60,(2+4 * lane),map_waypoints_s,map_waypoints_x, map_waypoints_y);
@@ -275,6 +406,20 @@ int main() {
         }
 
         tk::spline s;
+
+        for(int i = 0; i<ptsx.size(); i++){
+          std::cout << ptsx[i] << "   "<< ptsy[i]   << std::endl;
+        }
+        std::cout << "--------------" << std::endl;
+
+        vector <double> sorted_ptsx;
+        vector <double> sorted_ptsy;
+        for (auto i: sort_indexes(ptsx)) {
+
+          sorted_ptsx.push_back(ptsx[i]);
+          sorted_ptsy.push_back(ptsy[i]);
+
+        }
 
         s.set_points(ptsx, ptsy);
         vector<double> next_x_vals;
